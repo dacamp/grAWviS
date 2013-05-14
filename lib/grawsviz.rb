@@ -12,9 +12,11 @@ class GrAWSViz
   def initialize(access_key, secret_key, opts={})
     ec2      = AWS::EC2.new(:access_key_id => access_key, :secret_acces_key => secret_key)
 
-    @groups = { :group_names => opts[:group_names] } if opts[:group_names]
-    @sg_info = ec2.client.describe_security_groups(@groups)[:security_group_info]
-    @graph   = GraphViz.new( owner_id )
+    opts[:group_names] ||= []
+    @groups  = { :group_names => opts[:group_names] } if opts[:group_names].any?
+    @sg_info = ec2.client.describe_security_groups(@groups || {})[:security_group_info]
+    title    = opts[:group_names].any? ?  opts[:group_names].join(', ') : owner_id
+    @graph   = GraphViz.new( title )
     @fmt     = opts[:format] || :svg
 
     File.open('/tmp/sg_info', 'w') { |f| f.puts JSON.pretty_generate(@sg_info) }

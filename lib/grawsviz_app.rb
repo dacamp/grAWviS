@@ -7,9 +7,9 @@ require 'grawsviz'
 @secret_key = ARGV[1] || ENV['AWS_SECRET_ACCESS_KEY']
 
 get '/' do
-  @gr = GrAWSViz.new(@access_key, @secret_key)
-  @gr.generate_graph
-  redirect to("/view?file=#{@gr.file_name}")
+  gr = GrAWSViz.new(@access_key, @secret_key)
+  gr.generate_graph
+  redirect to("/view?file=#{gr.file_name}")
 end
 
 get '/view' do
@@ -18,8 +18,8 @@ get '/view' do
 end
 
 get '/node/:n' do
-  @gr = GrAWSViz.new(@access_key, @secret_key, {:group_names => [params[:n]].flatten})
-  @gr.generate_graph
-  redirect to("/view?file=#{@gr.file_name}")
+  gr = GrAWSViz.new(@access_key, @secret_key, {:group_names => [params[:n]].flatten})
+  gr.generate_graph
+  redirect to("/view?file=#{gr.file_name}")
 end
 
