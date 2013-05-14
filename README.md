@@ -8,6 +8,7 @@ Work in progress, lots to come!
 Export AWS EC2 environment variables to your shell
 
   $ bundle install
+  
   $ rackup -p 8000
 
 Open up your browser to localhost port 8000
