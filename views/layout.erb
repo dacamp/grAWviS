@@ -1,0 +1,24 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" 
+                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- use lang and xml:lang if your language supports it - A.7 -->
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  <title>GrAWSViz AWS Viewer</title>
+  <link rel="stylesheet" href="/stylesheets/layout.css"/>
+  <link rel="stylesheet" href="/stylesheets/errors.css"/>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <div id='headerImage'>GrAWSViz</div>
+    </div>
+    <div id="nav">
+      <%= erb :nav, :locals => { :accounts => ENV.select{ |e| e =~
+      /^(.*)_AWS.+KEY/i }.keys.map{ |a| a.split("_").first }.uniq.sort } %>
+    </div>
+    <div id="main">
+      <%= yield %>
+    </div>
+  </div>
+</body>
+</html>

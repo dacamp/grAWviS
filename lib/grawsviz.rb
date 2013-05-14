@@ -1,43 +1,62 @@
-#!/usr/bin/env ruby
-
 require 'rubygems'
 require 'aws-sdk'
 require 'graphviz'
 require 'json'
 
-$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))  unless
+  $LOAD_PATH.include?(File.expand_path(File.dirname(__FILE__)))
 require 'constants'
 
 class GrAWSViz
-  def initialize(access_key, secret_key, opts={})
-    ec2      = AWS::EC2.new(:access_key_id => access_key, :secret_acces_key => secret_key)
+  attr_accessor :title, :fmt, :force
+  attr_reader :file_name, :owner_id
 
-    opts[:group_names] ||= []
-    @groups  = { :group_names => opts[:group_names] } if opts[:group_names].any?
-    @sg_info = ec2.client.describe_security_groups(@groups || {})[:security_group_info]
-    title    = opts[:group_names].any? ?  opts[:group_names].join(', ') : owner_id
-    @graph   = GraphViz.new( title )
-    @fmt     = opts[:format] || :svg
+  def initialize(opts={})
+    aws_keys( {:access_key_id => (opts[:access_key] || ENV['AWS_ACCESS_KEY_ID']),
+               :secret_access_key => (opts[:secret_key] || ENV['AWS_SECRET_ACCESS_KEY']) })
 
-    File.open('/tmp/sg_info', 'w') { |f| f.puts JSON.pretty_generate(@sg_info) }
+    @force   = opts[:force]
+    if (opts[:group_names] ||= []).any?
+      params   = {:group_names => opts[:group_names]}
+      @force = true
+    end
+    @sg_info = ec2.client.describe_security_groups(params)[:security_group_info]
+    @title   = opts[:group_names].any? ?  opts[:group_names].join(', ') : owner_id
+    @fmt     = (opts[:format] ||= :svg).to_s
+
+    File.open('/tmp/sg_info', 'w') { |f| f.puts JSON.pretty_generate(@sg_info) } # debug-ish
   end
 
   def generate_graph
-    generate_nodes
-    parse
-    @graph.output( @fmt => file_name )
+    cache_current? || _generate_graph
+  end
+
+  def cache_current?
+    return nil if @force
+    (Time.now - File.mtime(file_name)) < 3600.to_f
+  rescue Errno::ENOENT
+    return nil
+  end
+
+  def map_instances
+    @sg_instances ||= _map_instances
+  end
+
+  def graph
+    @graph ||= GraphViz.new( @title )
   end
 
   def owner_id
-    @owner_id ||= @sg_info.collect{ |g| g[:owner_id] }.uniq.first.to_s
+    @owner_id ||= @sg_info.find{ |g| g[:owner_id] }[:owner_id]
   end
 
+  # This is really ugly
   def compiled_groups
     @sg_info.collect { |g|
-      [{:node => "#{g[:group_name] || find_name(g[:user_id]) || g[:user_id]} (#{g[:group_id]})", :owner_id => g[:owner_id]}] +
+      [{:node => "#{g[:group_name] || find_name(g[:user_id]) || g[:user_id]} (#{g[:group_id]})", :owner_id => g[:owner_id], :sg_id => g[:group_id]}] +
       g[:ip_permissions].collect{ |p|
         p[:groups].map { |gg|
-          { :node => "#{gg[:group_name] || find_name(g[:user_id])} (#{gg[:group_id]})", :owner_id => gg[:user_id] }
+          { :node => "#{gg[:group_name] || find_name(g[:user_id])} (#{gg[:group_id]})", :owner_id => gg[:user_id], :sg_id => gg[:group_id] }
         }
         p[:ip_ranges].map  { |ip|
           { :node => ip[:cidr_ip], :owner_id => ip[:cidr_ip] }
@@ -46,12 +65,18 @@ class GrAWSViz
     }.flatten.uniq { |a| a[:node] }
   end
 
+  def node_count(id)
+    (@sg_instances[id] || []).count
+  end
+
   def generate_nodes
     compiled_groups.map { |g|
-      @graph.add_node( find_name(g[:node]), create_style(g[:owner_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/node/#{find_name(g[:node]).split(/\s+/).first}" } ) )
+      fontcolor = { :fontcolor => 'red' }  if node_count(g[:sg_id]) == 0 and g[:node] =~ /.*\(.*\)/
+      graph.add_node( find_name(g[:node]), create_style(g[:owner_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/account/#{find_name(g[:owner_id])}/#{find_name(g[:node]).split(/\s+/).first}" }.merge!(fontcolor || {}) ) )
     }
   end
 
+  # Also really ugly
   def parse
     seen = []
     @sg_info.each do |sg|
@@ -64,15 +89,15 @@ class GrAWSViz
 
         p[:groups].each do |g|
           if g_node  = "#{g[:group_name] || find_name(g[:user_id])} (#{g[:group_id]})"
-            if ! @graph.find_node(g_node)
-              @graph.add_node( find_name(g_node), create_style(g[:user_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/node/#{g[:group_name]}" } ) )
+            if ! graph.get_node(g_node)
+              graph.add_node( find_name(g_node), create_style(g[:user_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/account/#{find_name(g[:user_id])}/#{g[:group_name]}" } ) )
             end
 
-            if ! @graph.find_node(sg_node)
-              @graph.add_node( find_name(sg_node), create_style(sg[:owner_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/node/#{sg[:group_name]}"} ) )
+            if ! graph.get_node(sg_node)
+              graph.add_node( find_name(sg_node), create_style(sg[:owner_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/account/#{find_name(g[:user_id])}/#{sg[:group_name]}"} ) )
             end
 
-            @graph.add_edge(g_node, sg_node, create_style( g[:user_id], {:color => 'red', :style => 'filled, rounded', :label => port_range} ) )
+            graph.add_edge(g_node, sg_node, create_style( g[:user_id], {:color => 'red', :style => 'filled, rounded', :label => port_range} ) )
           end
         end
 
@@ -80,7 +105,7 @@ class GrAWSViz
           from, to = find_name(cidr[:cidr_ip]), sg_node
           next if seen.include? [from, to, port_range]
           seen.push([from, to, port_range])
-          @graph.add_edge(from, to, create_style( from, { :label => port_range } ) )
+          graph.add_edge(from, to, create_style( from, { :label => port_range } ) )
         end
       end
     end
@@ -93,25 +118,60 @@ class GrAWSViz
   def find_name(val)
     KNOWN_NAMES[val.to_s] || val.to_s
   end
-  private :find_name
 
   def file_name
-    @file_name ||= file_increment("#{owner_id}-security-groups.#{@fmt}")
+    @file_name ||= "images/#{_file_name}"
   end
 
-
-  def file_increment(path)
-    while File.exists?(path)
-      _, fn, c, fe = *path.match(/(\A.*?)(?:\.(\d+))?(\.[^.]*)?\Z/)
-      c = (c || '0').to_i + 1
-      path = "#{fn}.#{c}#{fe}"
-    end
-    return path
+  ## Private Methods
+  def _generate_graph
+    file_maintenance
+    map_instances
+    generate_nodes
+    parse
+    graph.output( @fmt => file_name )
   end
-  private :file_increment
+
+  def _map_instances
+    sg = {}
+    ec2.client.describe_instances[:reservation_set].map { |r|
+      r[:instances_set].map{ |i|
+        r[:group_set].map{ |s|
+          (sg[s[:group_id]] ||= []) << i[:instance_id]
+        }
+      }
+    }
+    sg
+  end
+  private :_map_instances
+
+  def file_maintenance
+    return nil if ! File.exists?(file_name)
+    File.exists?(base_dir + "/archive") || Dir.mkdir(base_dir + "/archive")
+    File.rename "#{file_name}",
+    "#{base_dir}/archive/#{_file_name}.#{File.mtime(file_name).strftime("%Y%M%d-%H%M")}"
+  end
+  private :file_maintenance
+
+  def _file_name
+    "#{@title}-security-groups.#{@fmt}"
+  end
+  private :_file_name
+
+  def base_dir
+    File.expand_path(File.dirname(file_name))
+  end
+  private :base_dir
+
+  def ec2
+    @ec2 ||= AWS::EC2.new
+  end
+  private :ec2
+
+  def aws_keys(opts={})
+    AWS.config(opts)
+  end
+  private :aws_keys
+
 
 end
-
-access_key = ARGV[0] || ENV['AWS_ACCESS_KEY_ID']
-secret_key = ARGV[1] || ENV['AWS_SECRET_ACCESS_KEY']
-GrAWSViz.new(access_key, secret_key).generate_graph

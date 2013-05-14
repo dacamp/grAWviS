@@ -1,0 +1,166 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #fff;
+  background-image: url('/images/sidebar.png');
+  background-repeat: repeat-y;
+  color: #333;
+  font-family: verdana, arial, helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+#main {
+    overflow: auto;
+    padding-left: 25px;
+    margin-top: 15px;
+}
+
+#container {
+    margin: 0 auto; /*Center container on page */
+}
+
+.linkBorder {
+    border: {
+	style: solid;
+	width: 2px;
+	left: {
+	    color: #888;
+	}
+	right: {
+	    color: #ccc;
+	}
+	bottom: {
+	    width: 0px;
+	}
+   }
+}
+
+p, ol, ul, td {
+  font-family: verdana, arial, helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+#header {
+    background: #EAEAEA;
+    height: 100px; /*Header height*/
+}
+
+pre {
+  background-color: #eee;
+  padding: 10px;
+  font-size: 11px;
+}
+
+a {
+    text-decoration: none;
+    color: black;
+}
+
+div {
+  &.field, &.actions {
+    margin-bottom: 10px;
+  }
+}
+
+#headerImage {
+    float: left;
+    text-indent: -9999px;
+    width: 215px;
+    height:100px;
+    background-image: url('/images/default.png'); /*Still need a cool logo*/
+}
+
+#mainText {
+    height: 70px;
+    overflow: hidden;
+}
+
+#anchorLinks {
+    height: 30px;
+    overflow: hidden;
+    position: relative;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.linksPlace {
+    position: absolute;
+    bottom: 0;
+    a:visited {
+	    color: black;
+    }
+}
+
+.linkBorder {
+    border: {
+	style: solid;
+	width: 2px;
+	left: {
+	    color: #888;
+	}
+	right: {
+	    color: #ccc;
+	}
+	bottom: {
+	    width: 0px;
+	}
+   }
+    &:hover {
+        background-color: #02b7de;
+    }
+}
+
+.linkAlign {
+    float: left;
+    margin-left: 5px;
+    margin-right: 5px;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+#nav {
+    padding-top: 10px;
+    padding-left: 10px;
+    float: left;
+    width: 150px;
+    overflow: hidden;
+    a {
+	text-decoration: none;
+	&:visited {
+	    color: black;
+	}
+	&:hover {
+	    color: #666;
+	    background-color: #02b7de;
+	}
+    }
+}
+
+ul {
+    list-style-type: none;
+    padding-left: 10px;
+    padding-right: 10px;
+    margin: 0px;
+    li {
+	padding-left: 5px;
+    }
+}
+
+.listBorder {
+    border: {
+	style: solid;
+	width: 2px;
+	left: {
+	    color: #888;
+	}
+	right: {
+	    color: #ccc;
+	    width: 4px;
+	}
+    }
+    &:hover {
+        background-color: #02b7de;
+    }
+}
