@@ -13,8 +13,8 @@ end
 
 get '/account/:account/?:node?' do
   opts = {}
-  e = ENV.select{ |e| e =~ /^#{params[:account]}.+AWS.*/i }
-  e.map{ |k,v|
+  var = ENV.select{ |e| e =~ /^#{params[:account]}.+AWS.*/i }
+  var.map{ |k,v|
     if k =~ /secret/i
       opts[:secret_key] = v
     else

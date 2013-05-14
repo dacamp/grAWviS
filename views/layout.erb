@@ -13,8 +13,8 @@
       <div id='headerImage'>GrAWSViz</div>
     </div>
     <div id="nav">
-      <%= erb :nav, :locals => { :accounts => ENV.select{ |e| e =~
-      /^(.*)_AWS.+KEY/i }.keys.map{ |a| a.split("_").first }.uniq.sort } %>
+      <%= erb :nav, :locals => {:accounts => ENV.keys.select{ |e| e =~
+      /^(.*)_AWS.+KEY/i  }.map{ |v| v.split("_").first }.uniq } %> 
     </div>
     <div id="main">
       <%= yield %>
