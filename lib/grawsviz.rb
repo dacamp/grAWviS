@@ -9,21 +9,25 @@ $LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
 require 'constants'
 
 class GrAWSViz
-  def initialize(access_key, secret_key)
+  def initialize(access_key, secret_key, opts={})
     ec2      = AWS::EC2.new(:access_key_id => access_key, :secret_acces_key => secret_key)
-    @sg_info = ec2.client.describe_security_groups()[:security_group_info]
-    @graph   = GraphViz.new( :G )
+
+    @groups = { :group_names => opts[:group_names] } if opts[:group_names]
+    @sg_info = ec2.client.describe_security_groups(@groups)[:security_group_info]
+    @graph   = GraphViz.new( owner_id )
+    @fmt     = opts[:format] || :svg
+
     File.open('/tmp/sg_info', 'w') { |f| f.puts JSON.pretty_generate(@sg_info) }
   end
 
   def generate_graph
     generate_nodes
     parse
-    @graph.output( :png => png_name )
+    @graph.output( @fmt => file_name )
   end
 
   def owner_id
-    @owner_id ||= @sg_info.collect{ |g| g[:owner_id] }.uniq
+    @owner_id ||= @sg_info.collect{ |g| g[:owner_id] }.uniq.first.to_s
   end
 
   def compiled_groups
@@ -42,14 +46,14 @@ class GrAWSViz
 
   def generate_nodes
     compiled_groups.map { |g|
-      @graph.add_node( find_name(g[:node]), create_style(g[:owner_id].to_s, {:style => "filled,rounded", :shape => :box } ) )
+      @graph.add_node( find_name(g[:node]), create_style(g[:owner_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/node/#{find_name(g[:node]).split(/\s+/).first}" } ) )
     }
   end
 
   def parse
     seen = []
     @sg_info.each do |sg|
-      owner_id = sg[:owner_id]
+      o_id = sg[:owner_id]
       sg_node  = "#{sg[:group_name]} (#{sg[:group_id]})"
 
       sg[:ip_permissions].each do |p|
@@ -58,6 +62,14 @@ class GrAWSViz
 
         p[:groups].each do |g|
           if g_node  = "#{g[:group_name] || find_name(g[:user_id])} (#{g[:group_id]})"
+            if ! @graph.find_node(g_node)
+              @graph.add_node( find_name(g_node), create_style(g[:user_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/node/#{g[:group_name]}" } ) )
+            end
+
+            if ! @graph.find_node(sg_node)
+              @graph.add_node( find_name(sg_node), create_style(sg[:owner_id].to_s, {:style => "filled,rounded", :shape => :box, "URL" => "/node/#{sg[:group_name]}"} ) )
+            end
+
             @graph.add_edge(g_node, sg_node, create_style( g[:user_id], {:color => 'red', :style => 'filled, rounded', :label => port_range} ) )
           end
         end
@@ -81,10 +93,10 @@ class GrAWSViz
   end
   private :find_name
 
-  def png_name
-    file_increment("#{owner_id}-security-groups.png")
+  def file_name
+    @file_name ||= file_increment("#{owner_id}-security-groups.#{@fmt}")
   end
-  private :png_name
+
 
   def file_increment(path)
     while File.exists?(path)
