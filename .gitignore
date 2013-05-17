@@ -1,4 +1,5 @@
 *~
 *.svg
 *.css
+*.png
 .sass-cache
