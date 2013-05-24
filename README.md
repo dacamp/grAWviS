@@ -1,10 +1,11 @@
-# GrAWSViz
+# GrAWviS
 
 Visualize AWS Security Groups in color!
 
 Work in progress, lots to come!
 
 ## USAGE
+Install Gravis on your system.
 Export AWS EC2 environment variables to your shell
 
   $ bundle install
